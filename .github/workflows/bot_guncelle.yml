@@ -1,0 +1,37 @@
+name: Otonom Not Guncelleyici
+
+on:
+  schedule:
+    # Her gün gece yarısı (00:00 UTC) otomatik çalışır
+    - cron: '0 0 * * *'
+  workflow_dispatch: # İstersen elinle de tetikleyebilirsin
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu Kopyala
+        uses: actions/checkout@v3
+
+      - name: Python Kur
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Gerekli Kutuphaneleri Kur
+        run: |
+          pip install google-genai
+
+      - name: Botu Calistir ve Notlari Guncelle
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python akilli_bot.py
+
+      - name: Degisiklikleri Siteye Kaydet
+        run: |
+          git config --global user.name "Otonom Bot"
+          git config --global user.email "bot@users.noreply.github.com"
+          git add notlar.json
+          git commit -m "Otomatik not guncellemesi [skip ci]" || exit 0
+          git push
