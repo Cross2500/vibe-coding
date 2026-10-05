@@ -187,6 +187,21 @@
             .main-content { padding: 60px 20px 20px 20px; }
             .article-container { padding: 30px 20px; }
         }
+    /* Gece Modu (Dark Mode) Modülü */
+        body.dark-mode {
+            --bg-body: #1A202C;
+            --bg-sidebar: #2D3748;
+            --text-main: #E2E8F0;
+            --text-muted: #A0AEC0;
+            --text-heading: #F7FAFC;
+            --border-color: #4A5568;
+        }
+        body.dark-mode .article-container {
+            background: #2D3748;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        body.dark-mode .nav-item:hover { background-color: #4A5568; }
+        body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
     </style>
 </head>
 <body>
