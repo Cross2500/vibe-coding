@@ -30,6 +30,23 @@
             --border-color: #E2E8F0;
         }
 
+        /* Gece Modu (Dark Mode) Modülü */
+        body.dark-mode {
+            --bg-body: #1A202C;
+            --bg-sidebar: #2D3748;
+            --text-main: #E2E8F0;
+            --text-muted: #A0AEC0;
+            --text-heading: #F7FAFC;
+            --border-color: #4A5568;
+        }
+        
+        body.dark-mode .article-container {
+            background: #2D3748;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        body.dark-mode .nav-item:hover { background-color: #4A5568; }
+        body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -44,6 +61,7 @@
             height: 100vh;
             overflow: hidden;
             line-height: 1.7;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* --- YAN MENÜ (SIDEBAR) --- */
@@ -54,7 +72,7 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, background-color 0.3s ease;
         }
 
         .sidebar-header {
@@ -116,6 +134,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
             border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         /* Tipografi Hiyerarşisi */
@@ -173,6 +192,7 @@
             padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
+            color: var(--text-main);
         }
 
         @media (max-width: 768px) {
@@ -187,21 +207,6 @@
             .main-content { padding: 60px 20px 20px 20px; }
             .article-container { padding: 30px 20px; }
         }
-    /* Gece Modu (Dark Mode) Modülü */
-        body.dark-mode {
-            --bg-body: #1A202C;
-            --bg-sidebar: #2D3748;
-            --text-main: #E2E8F0;
-            --text-muted: #A0AEC0;
-            --text-heading: #F7FAFC;
-            --border-color: #4A5568;
-        }
-        body.dark-mode .article-container {
-            background: #2D3748;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        body.dark-mode .nav-item:hover { background-color: #4A5568; }
-        body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
     </style>
 </head>
 <body>
@@ -209,12 +214,16 @@
     <!-- Mobil Menü Butonu -->
     <button class="mobile-menu-btn" onclick="toggleMenu()">☰ Menü</button>
 
-    <!-- Yan Menü -->
+    <!-- Yan Menü ve Yeni Eklenen Arama/Gece Modu Araçları -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h1>CS101 Notları</h1>
             <p>Otonom Yapay Zeka Sistemi</p>
+            
+            <!-- Arama Çubuğu -->
             <input type="text" id="searchInput" placeholder="Konularda ara..." onkeyup="filterTopics()" style="width: 100%; margin-top: 15px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
+            
+            <!-- Gece Modu Butonu -->
             <button onclick="toggleDarkMode()" style="margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border-radius: 4px; border: none; background: var(--accent); color: white; font-weight: bold;">🌙 Gece Modu</button>
         </div>
         <ul class="nav-list" id="navList">
@@ -230,11 +239,120 @@
     </main>
 
     <script>
-        // İleride backend bağlandığında buradaki URL değişecek
         const DATA_URL = 'notlar.json';
         let notesData = {};
 
         // Uygulamayı Başlat
         async function initApp() {
             try {
-                // Ön bellek sorun
+                const response = await fetch(DATA_URL + '?t=' + new Date().getTime());
+                if (!response.ok) throw new Error('Veri dosyasına ulaşılamadı.');
+                
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
+                        const value = item.icerik || item.not || item.content || "";
+                        notesData[key] = value;
+                    });
+                } else {
+                    notesData = data;
+                }
+
+                renderSidebar();
+                
+                const firstTopic = Object.keys(notesData)[0];
+                if (firstTopic) {
+                    loadContent(firstTopic);
+                } else {
+                    showError("Notlar dosyası boş.");
+                }
+
+            } catch (error) {
+                console.error("Yükleme hatası:", error);
+                showError("Veriler yüklenirken bir hata oluştu. Henüz bot çalışmamış olabilir.");
+            }
+        }
+
+        // Yan Menüyü Oluştur
+        function renderSidebar() {
+            const navList = document.getElementById('navList');
+            navList.innerHTML = ''; 
+
+            Object.keys(notesData).forEach(topic => {
+                const li = document.createElement('li');
+                li.className = 'nav-item';
+                li.textContent = topic;
+                li.onclick = () => {
+                    loadContent(topic);
+                    if (window.innerWidth <= 768) toggleMenu(); 
+                };
+                navList.appendChild(li);
+            });
+        }
+
+        // İçeriği Ekrana Bas
+        function loadContent(topic) {
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active');
+                if (el.textContent === topic) el.classList.add('active');
+            });
+
+            const rawContent = notesData[topic] || "İçerik bulunamadı.";
+            const container = document.getElementById('articleContainer');
+
+            container.innerHTML = `<h1 class="topic-title">${topic}</h1>` + marked.parse(rawContent);
+
+            document.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+
+            renderMathInElement(container, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError : false
+            });
+
+            document.getElementById('mainContent').scrollTop = 0;
+        }
+
+        function showError(message) {
+            document.getElementById('articleContainer').innerHTML = `<div class="error">⚠️ ${message}</div>`;
+        }
+
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // YENİ MODÜL: Karanlık Mod (Dark Mode) Kontrolü
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark); 
+        }
+
+        // İlk girişte kayıtlı karanlık mod tercihini kontrol et
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // YENİ MODÜL: Arama (Filtreleme) Sistemi
+        function filterTopics() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const items = document.querySelectorAll('.nav-item');
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? 'block' : 'none';
+            });
+        }
+
+        // Sayfa yüklendiğinde sistemi ateşle
+        window.onload = initApp;
+    </script>
+</body>
+</html>
