@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       # Tarih en başta alınır; sonraki adımlar (always) çökme durumunda da kullanabilsin
@@ -40,10 +40,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Botu Calistir ve Notlari Guncelle
-        env:
+              env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # İsteğe bağlı: modeli buradan değiştirebilirsin
-          # GEMINI_MODEL: gemini-3.8-flash
+          GEMINI_MODEL: gemini-3.8-flash
+          GEMINI_FALLBACK_MODEL: Antigravity
         run: python akilli_bot.py
 
       - name: Degisiklikleri Siteye Kaydet
