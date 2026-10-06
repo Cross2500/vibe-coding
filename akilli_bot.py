@@ -23,25 +23,19 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# MEVCUT MODÜL: Algoritmik Okuma Süresi Hesaplayıcı
+# EKSTRA MODÜL 1: Okuma Süresi Hesaplayıcı
 def okuma_suresi_hesapla(metin: str) -> int:
-    """Metnin kelime sayısını analiz edip insan için ortalama okuma süresini (dakika) döndürür."""
     kelime_sayisi = len(metin.split())
     dakika = max(1, round(kelime_sayisi / 200)) 
-    logger.info(f"Metin analizi: Toplam {kelime_sayisi} kelime, {dakika} dakikalık okuma süresi hesaplandı.")
     return dakika
 
-# YENİ EKLENEN EXTRA MODÜL: Akademik Zorluk Seviyesi Analizörü
+# EKSTRA MODÜL 2: Akademik Zorluk Seviyesi Analizörü
 def akademik_zorluk_hesapla(metin: str) -> str:
-    """Metindeki karmaşık öğeleri (formül, kod bloğu) sayarak zorluk derecesini belirler."""
     kod_blok_sayisi = metin.count("```") / 2
     formul_sayisi = metin.count("$$") / 2
     kelime_sayisi = len(metin.split())
     
-    # Özel algoritma: Formüller ve kodlar zorluğu çok artırır, uzunluk az artırır
     karmasiklik_puani = (formul_sayisi * 2.5) + (kod_blok_sayisi * 2.0) + (kelime_sayisi / 400)
-    
-    logger.info(f"Karmaşıklık Skoru: Puan={karmasiklik_puani:.1f} (Kod: {int(kod_blok_sayisi)}, Formül: {int(formul_sayisi)})")
     
     if karmasiklik_puani >= 12:
         return "🔴 İleri Seviye (Uzman)"
@@ -53,19 +47,27 @@ def akademik_zorluk_hesapla(metin: str) -> str:
 def otonom_sistemi_baslat():
     logger.info("--- 🧠 CS101 Otonom Akademik Not Sistemi Başlatılıyor ---")
     dosya_adi = 'notlar.json'
-    mevcut_notlar = {}
     
-    # MODÜL 1: Eski Notları Oku ve Güvenlik Yedeği Al
+    # FRONTEND UYUMLU ANA İSKELET
+    mevcut_veri = {
+        "son_guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "bolumler": []
+    }
+    
+    # MODÜL 1: Eski Notları Oku ve Yapıyı Doğrula
     if os.path.exists(dosya_adi):
         shutil.copy2(dosya_adi, f"{dosya_adi}.backup") 
         logger.info("Veritabanı güvenlik yedeği alındı.")
         try:
             with open(dosya_adi, 'r', encoding='utf-8') as f:
-                mevcut_notlar = json.load(f)
+                okunan_json = json.load(f)
+                # Sitenin beklediği 'bolumler' dizisi varsa onu kullan
+                if "bolumler" in okunan_json:
+                    mevcut_veri["bolumler"] = okunan_json["bolumler"]
         except json.JSONDecodeError:
-            logger.warning("Mevcut JSON bozuk, sistem kurtarma modunda sıfırdan başlıyor.")
+            logger.warning("Mevcut JSON okunamadı, sıfırdan başlanıyor.")
             
-    islenen_konular = list(mevcut_notlar.keys())
+    islenen_konular = [bolum["baslik"] for bolum in mevcut_veri["bolumler"]]
     konu_gecmisi = ", ".join(islenen_konular) if islenen_konular else "Henüz hiç konu işlenmedi."
     gunun_tarihi = datetime.now().strftime("%d %B %Y")
     
@@ -92,7 +94,7 @@ def otonom_sistemi_baslat():
     }}
     """
     
-    # MODÜL 3: Yapay Zekadan İçerik Üretme (Retry Mekanizması)
+    # MODÜL 3: Yapay Zekadan İçerik Üretme
     max_deneme = 3
     for deneme in range(max_deneme):
         try:
@@ -110,23 +112,28 @@ def otonom_sistemi_baslat():
             baslik = yeni_konu["baslik"]
             ham_icerik = yeni_konu["icerik"]
             
-            logger.info(f"✨ Harika! Yapay zeka şu konuyu üretti: '{baslik}'")
-            
-            # GÜNCELLENMİŞ ENTEGRASYON: Okuma Süresi ve Zorluk Derecesi birleştirildi
+            # Entegrasyonlar
             hesaplanan_sure = okuma_suresi_hesapla(ham_icerik)
             zorluk_etiketi = akademik_zorluk_hesapla(ham_icerik)
-            
-            # İki analiz modülünün sonucunu tek bir şık panelde birleştiriyoruz
             meta_panel = f"> ⏱️ **Tahmini Okuma Süresi:** {hesaplanan_sure} dakika | 🎚️ **Zorluk Derecesi:** {zorluk_etiketi}\n\n---\n\n"
             son_icerik = meta_panel + ham_icerik
             
-            # MODÜL 4: Yeni Konuyu Sisteme Kaydet
-            mevcut_notlar[baslik] = son_icerik
+            # MODÜL 4: Yeni Konuyu Sitenin İstediği "Bölümler" Formatında Ekle
+            yeni_id = f"bolum-{len(mevcut_veri['bolumler']) + 1}"
+            yeni_bolum = {
+                "id": yeni_id,
+                "baslik": baslik,
+                "icerik": son_icerik,
+                "ikon": "fa-brain" # Sol menüde gözükecek FontAwesome ikonu
+            }
+            
+            mevcut_veri["bolumler"].append(yeni_bolum)
+            mevcut_veri["son_guncelleme"] = datetime.now().strftime("%d.%m.%Y %H:%M")
             
             with open(dosya_adi, 'w', encoding='utf-8') as f:
-                json.dump(mevcut_notlar, f, ensure_ascii=False, indent=4)
+                json.dump(mevcut_veri, f, ensure_ascii=False, indent=4)
                 
-            logger.info("🚀 BAŞARILI: Yeni ders siteye eklendi ve veritabanı güncellendi!")
+            logger.info(f"🚀 BAŞARILI: '{baslik}' siteye eklendi ve veritabanı güncellendi!")
             break 
             
         except Exception as e:
