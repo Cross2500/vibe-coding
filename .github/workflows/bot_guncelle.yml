@@ -21,7 +21,6 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      # Tarih en başta alınır; sonraki adımlar (always) çökme durumunda da kullanabilsin
       - name: Tarih Bilgisini Al
         run: echo "tarih=$(TZ=Europe/Istanbul date +'%Y-%m-%d')" >> "$GITHUB_ENV"
 
@@ -32,18 +31,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip' # requirements.txt dosyasını kullanır
+          cache: 'pip'
 
       - name: Gerekli Kutuphaneleri Kur
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Botu Calistir ve Notlari Guncelle
-              env:
+        - name: Botu Calistir ve Notlari Guncelle
+        env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
-          GEMINI_FALLBACK_MODEL: Antigravity
+          GEMINI_FALLBACK_MODEL: gemini-2.5-flash
         run: python akilli_bot.py
 
       - name: Degisiklikleri Siteye Kaydet
@@ -58,7 +57,6 @@ jobs:
             git push
           fi
 
-      # Artifact adlarında ters eğik çizgi gibi karakterler geçersizdir; sade ASCII ad kullanıldı
       - name: Artifact Yedeği Olustur
         uses: actions/upload-artifact@v4
         if: always()
