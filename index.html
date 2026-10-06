@@ -19,7 +19,6 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 
     <style>
-        /* CSS Değişkenleri - Akademik Tema */
         :root {
             --bg-body: #F9F9F8;
             --bg-sidebar: #F1F1EF;
@@ -30,7 +29,6 @@
             --border-color: #E2E8F0;
         }
 
-        /* Gece Modu (Dark Mode) Modülü */
         body.dark-mode {
             --bg-body: #1A202C;
             --bg-sidebar: #2D3748;
@@ -47,11 +45,7 @@
         body.dark-mode .nav-item:hover { background-color: #4A5568; }
         body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -64,7 +58,6 @@
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* --- YAN MENÜ (SIDEBAR) --- */
         .sidebar {
             width: 280px;
             background-color: var(--bg-sidebar);
@@ -93,10 +86,7 @@
             margin-top: 4px;
         }
 
-        .nav-list {
-            list-style: none;
-            padding: 16px 0;
-        }
+        .nav-list { list-style: none; padding: 16px 0; }
 
         .nav-item {
             padding: 10px 24px;
@@ -107,9 +97,7 @@
             border-left: 3px solid transparent;
         }
 
-        .nav-item:hover {
-            background-color: #E2E8F0;
-        }
+        .nav-item:hover { background-color: #E2E8F0; }
 
         .nav-item.active {
             background-color: #EBF8FF;
@@ -118,7 +106,6 @@
             font-weight: 500;
         }
 
-        /* --- ANA İÇERİK (MAIN CONTENT) --- */
         .main-content {
             flex: 1;
             overflow-y: auto;
@@ -137,7 +124,6 @@
             transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Tipografi Hiyerarşisi */
         .article-container h1, .article-container h2, .article-container h3 {
             font-family: 'Merriweather', serif;
             color: var(--text-heading);
@@ -151,7 +137,6 @@
         .article-container p { margin-bottom: 1.2em; font-size: 1.05rem; }
         .article-container ul, .article-container ol { margin-bottom: 1.2em; padding-left: 2em; }
         
-        /* Kod Blokları */
         pre {
             background-color: #282c34;
             border-radius: 6px;
@@ -172,7 +157,6 @@
         
         pre code { background-color: transparent; padding: 0; color: inherit; }
 
-        /* Yükleniyor ve Hata Durumları */
         .loading, .error {
             text-align: center;
             padding: 40px;
@@ -180,7 +164,6 @@
             font-size: 1.1rem;
         }
 
-        /* Mobil Uyumluluk */
         .mobile-menu-btn {
             display: none;
             position: fixed;
@@ -211,27 +194,20 @@
 </head>
 <body>
 
-    <!-- Mobil Menü Butonu -->
     <button class="mobile-menu-btn" onclick="toggleMenu()">☰ Menü</button>
 
-    <!-- Yan Menü ve Yeni Eklenen Arama/Gece Modu Araçları -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h1>CS101 Notları</h1>
             <p>Otonom Yapay Zeka Sistemi</p>
             
-            <!-- Arama Çubuğu -->
             <input type="text" id="searchInput" placeholder="Konularda ara..." onkeyup="filterTopics()" style="width: 100%; margin-top: 15px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
             
-            <!-- Gece Modu Butonu -->
             <button onclick="toggleDarkMode()" style="margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border-radius: 4px; border: none; background: var(--accent); color: white; font-weight: bold;">🌙 Gece Modu</button>
         </div>
-        <ul class="nav-list" id="navList">
-            <!-- JavaScript ile doldurulacak -->
-        </ul>
+        <ul class="nav-list" id="navList"></ul>
     </aside>
 
-    <!-- Ana İçerik Alanı -->
     <main class="main-content" id="mainContent">
         <div class="article-container" id="articleContainer">
             <div class="loading">Veriler buluttan çekiliyor... Lütfen bekleyin.</div>
@@ -242,23 +218,33 @@
         const DATA_URL = 'notlar.json';
         let notesData = {};
 
-        // Uygulamayı Başlat
         async function initApp() {
             try {
                 const response = await fetch(DATA_URL + '?t=' + new Date().getTime());
                 if (!response.ok) throw new Error('Veri dosyasına ulaşılamadı.');
                 
                 const data = await response.json();
-                
+                let itemsList = [];
+
                 if (Array.isArray(data)) {
-                    data.forEach(item => {
-                        const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
-                        const value = item.icerik || item.not || item.content || "";
-                        notesData[key] = value;
-                    });
-                } else {
-                    notesData = data;
+                    itemsList = data;
+                } else if (data && Array.isArray(data.bolumler)) {
+                    itemsList = data.bolumler;
+                } else if (typeof data === 'object' && data !== null) {
+                    for (const [key, value] of Object.entries(data)) {
+                        if (key !== 'son_guncelleme' && typeof value === 'string') {
+                            itemsList.push({ baslik: key, icerik: value });
+                        }
+                    }
                 }
+
+                itemsList.forEach(item => {
+                    const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
+                    const value = item.icerik || item.not || item.content || "";
+                    if (key && value) {
+                        notesData[key] = value;
+                    }
+                });
 
                 renderSidebar();
                 
@@ -266,7 +252,7 @@
                 if (firstTopic) {
                     loadContent(firstTopic);
                 } else {
-                    showError("Notlar dosyası boş.");
+                    showError("Gösterilecek geçerli ders notu bulunamadı.");
                 }
 
             } catch (error) {
@@ -275,7 +261,6 @@
             }
         }
 
-        // Yan Menüyü Oluştur
         function renderSidebar() {
             const navList = document.getElementById('navList');
             navList.innerHTML = ''; 
@@ -292,7 +277,6 @@
             });
         }
 
-        // İçeriği Ekrana Bas
         function loadContent(topic) {
             document.querySelectorAll('.nav-item').forEach(el => {
                 el.classList.remove('active');
@@ -329,19 +313,16 @@
             document.getElementById('sidebar').classList.toggle('open');
         }
 
-        // YENİ MODÜL: Karanlık Mod (Dark Mode) Kontrolü
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
             const isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('darkMode', isDark); 
         }
 
-        // İlk girişte kayıtlı karanlık mod tercihini kontrol et
         if (localStorage.getItem('darkMode') === 'true') {
             document.body.classList.add('dark-mode');
         }
 
-        // YENİ MODÜL: Arama (Filtreleme) Sistemi
         function filterTopics() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const items = document.querySelectorAll('.nav-item');
@@ -351,7 +332,6 @@
             });
         }
 
-        // Sayfa yüklendiğinde sistemi ateşle
         window.onload = initApp;
     </script>
 </body>
