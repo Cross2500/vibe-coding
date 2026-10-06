@@ -41,8 +41,8 @@ jobs:
       - name: Botu Calistir ve Notlari Guncelle
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-          GEMINI_FALLBACK_MODEL: gemini-3-flash-preview
+          GEMINI_MODEL: gemini-3-flash-preview
+          GEMINI_FALLBACK_MODEL: gemini-3.8-flash
         run: python akilli_bot.py
 
       - name: Degisiklikleri Siteye Kaydet
