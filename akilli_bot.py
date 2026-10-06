@@ -18,7 +18,7 @@ DOSYA_ADI = "notlar.json"
 MODEL_ADI = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3-flash-preview")
 MAX_DENEME = 5
-MIN_KELIME = 1000  # Prompt 1500 istiyor; bunun altı "çok kısa" sayılıp yeniden denenir
+MIN_KELIME = 700  # Bunun altı "çok kısa" sayılıp yeniden denenir
 TZ = ZoneInfo("Europe/Istanbul")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
