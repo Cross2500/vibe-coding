@@ -60,12 +60,15 @@ def turkce_tarih(dt: datetime) -> str:
 
 
 def istemci_olustur() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         logger.error("KRİTİK HATA: GEMINI_API_KEY bulunamadı! GitHub Secrets'ı kontrol et.")
         sys.exit(1)
-    return genai.Client(api_key=api_key)
-
+    # Tek bir istek 2 dakikadan uzun asılı kalırsa kesilir ve yeniden denenir (süre milisaniye)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=120_000),
+    )
 
 def veri_yukle() -> dict:
     """notlar.json'u okur. Okunamazsa mevcut veriyi ezmemek için DURUR."""
