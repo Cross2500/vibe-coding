@@ -8,7 +8,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -16,7 +16,8 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 DOSYA_ADI = "notlar.json"
 MODEL_ADI = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-MAX_DENEME = 3
+YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "")  # boşsa yedek kullanılmaz
+MAX_DENEME = 5
 MIN_KELIME = 1000  # Prompt 1500 istiyor; bunun altı "çok kısa" sayılıp yeniden denenir
 TZ = ZoneInfo("Europe/Istanbul")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -69,6 +70,7 @@ def istemci_olustur() -> genai.Client:
         api_key=api_key,
         http_options=types.HttpOptions(timeout=120_000),
     )
+
 
 def veri_yukle() -> dict:
     """notlar.json'u okur. Okunamazsa mevcut veriyi ezmemek için DURUR."""
@@ -144,10 +146,12 @@ YANIT FORMATI: Yalnızca "baslik" ve "icerik" alanlarını içeren geçerli JSON
 def ders_uret(client: genai.Client, prompt: str, mevcut_basliklar: set) -> Ders:
     son_hata = None
     for deneme in range(1, MAX_DENEME + 1):
+        # İlk 3 deneme ana modelle; yedek tanımlıysa kalanlar yedekle
+        model = MODEL_ADI if (deneme <= 3 or not YEDEK_MODEL) else YEDEK_MODEL
         try:
-            logger.info(f"Yapay zeka yeni konuyu hazırlıyor... (Deneme {deneme}/{MAX_DENEME})")
+            logger.info(f"Yapay zeka yeni konuyu hazırlıyor... (Deneme {deneme}/{MAX_DENEME}, model: {model})")
             response = client.models.generate_content(
-                model=MODEL_ADI,
+                model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -172,13 +176,20 @@ def ders_uret(client: genai.Client, prompt: str, mevcut_basliklar: set) -> Ders:
 
             return ders
 
+        except errors.APIError as e:
+            # Kalıcı hatalarda (anahtar, model adı, geçersiz istek) beklemeye gerek yok
+            if e.code in (400, 401, 403, 404):
+                raise RuntimeError(f"Kalıcı API hatası, tekrar denenmeyecek: {e}") from e
+            son_hata = e
+            logger.error(f"Geçici API hatası: {e}")
         except Exception as e:
             son_hata = e
             logger.error(f"Hata oluştu: {e}")
-            if deneme < MAX_DENEME:
-                bekleme = 5 * (2 ** (deneme - 1))  # 5, 10, 20 sn
-                logger.info(f"{bekleme} sn sonra tekrar denenecek.")
-                time.sleep(bekleme)
+
+        if deneme < MAX_DENEME:
+            bekleme = 15 * (2 ** (deneme - 1))  # 15, 30, 60, 120 sn
+            logger.info(f"{bekleme} sn sonra tekrar denenecek.")
+            time.sleep(bekleme)
 
     raise RuntimeError(f"{MAX_DENEME} denemede de ders üretilemedi: {son_hata}")
 
