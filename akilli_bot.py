@@ -16,7 +16,7 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 DOSYA_ADI = "notlar.json"
 MODEL_ADI = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "")  # boşsa yedek kullanılmaz
+YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3-flash-preview")
 MAX_DENEME = 5
 MIN_KELIME = 1000  # Prompt 1500 istiyor; bunun altı "çok kısa" sayılıp yeniden denenir
 TZ = ZoneInfo("Europe/Istanbul")
@@ -177,11 +177,14 @@ def ders_uret(client: genai.Client, prompt: str, mevcut_basliklar: set) -> Ders:
             return ders
 
         except errors.APIError as e:
-            # Kalıcı hatalarda (anahtar, model adı, geçersiz istek) beklemeye gerek yok
-            if e.code in (400, 401, 403, 404):
+            # Kalıcı hatalarda (anahtar, geçersiz istek) beklemeye gerek yok.
+            # 404 (model yok) ise yedek model denenebilsin diye sadece ana modelde atlanır.
+            if e.code in (400, 401, 403):
                 raise RuntimeError(f"Kalıcı API hatası, tekrar denenmeyecek: {e}") from e
+            if e.code == 404 and model == YEDEK_MODEL:
+                raise RuntimeError(f"Yedek model de bulunamadı: {e}") from e
             son_hata = e
-            logger.error(f"Geçici API hatası: {e}")
+            logger.error(f"API hatası ({model}): {e}")
         except Exception as e:
             son_hata = e
             logger.error(f"Hata oluştu: {e}")
