@@ -1,338 +1,406 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CS101 Akademik Notlar</title>
-    
-    <!-- Modern Tipografi -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
-    
-    <!-- Kütüphaneler (Markdown, Kod Renklendirme, Matematik Formülleri) -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS101 Akademik Notlar</title>
 
-    <style>
-        :root {
-            --bg-body: #F9F9F8;
-            --bg-sidebar: #F1F1EF;
-            --text-main: #2D3748;
-            --text-muted: #718096;
-            --text-heading: #1A202C;
-            --accent: #2B6CB0;
-            --border-color: #E2E8F0;
-        }
+<!-- Modern Tipografi -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 
-        body.dark-mode {
-            --bg-body: #1A202C;
-            --bg-sidebar: #2D3748;
-            --text-main: #E2E8F0;
-            --text-muted: #A0AEC0;
-            --text-heading: #F7FAFC;
-            --border-color: #4A5568;
-        }
-        
-        body.dark-mode .article-container {
-            background: #2D3748;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        body.dark-mode .nav-item:hover { background-color: #4A5568; }
-        body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
+<!-- Kütüphaneler (Markdown, Güvenlik, Kod Renklendirme, Matematik Formülleri) -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+<style>
+:root {
+  --bg-body: #F9F9F8;
+  --bg-sidebar: #F1F1EF;
+  --text-main: #2D3748;
+  --text-muted: #718096;
+  --text-heading: #1A202C;
+  --accent: #2B6CB0;
+  --border-color: #E2E8F0;
+}
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            line-height: 1.7;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
+body.dark-mode {
+  --bg-body: #1A202C;
+  --bg-sidebar: #2D3748;
+  --text-main: #E2E8F0;
+  --text-muted: #A0AEC0;
+  --text-heading: #F7FAFC;
+  --border-color: #4A5568;
+}
 
-        .sidebar {
-            width: 280px;
-            background-color: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            transition: transform 0.3s ease, background-color 0.3s ease;
-        }
+body.dark-mode .article-container {
+  background: #2D3748;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+body.dark-mode .nav-item:hover { background-color: #4A5568; }
+body.dark-mode .nav-item.active { background-color: #2B6CB0; color: #fff; border-left-color: #63B3ED; }
+body.dark-mode code { background-color: rgba(255,255,255,0.12); }
 
-        .sidebar-header {
-            padding: 24px;
-            border-bottom: 1px solid var(--border-color);
-        }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .sidebar-header h1 {
-            font-family: 'Merriweather', serif;
-            font-size: 1.2rem;
-            color: var(--text-heading);
-            font-weight: 700;
-        }
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  line-height: 1.7;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
 
-        .sidebar-header p {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
+.sidebar {
+  width: 280px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
 
-        .nav-list { list-style: none; padding: 16px 0; }
+.sidebar-header {
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
 
-        .nav-item {
-            padding: 10px 24px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            color: var(--text-main);
-            transition: all 0.2s;
-            border-left: 3px solid transparent;
-        }
+.sidebar-header h1 {
+  font-family: 'Merriweather', serif;
+  font-size: 1.2rem;
+  color: var(--text-heading);
+  font-weight: 700;
+}
 
-        .nav-item:hover { background-color: #E2E8F0; }
+.sidebar-header p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
 
-        .nav-item.active {
-            background-color: #EBF8FF;
-            color: var(--accent);
-            border-left-color: var(--accent);
-            font-weight: 500;
-        }
+.nav-list { list-style: none; padding: 16px 0; }
 
-        .main-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 60px;
-            scroll-behavior: smooth;
-        }
+.nav-item {
+  padding: 10px 24px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+.nav-item:hover { background-color: #E2E8F0; }
+.nav-item.active {
+  background-color: #EBF8FF;
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 500;
+}
 
-        .article-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: #FFFFFF;
-            padding: 50px 60px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-            border: 1px solid var(--border-color);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
-        }
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 60px;
+  scroll-behavior: smooth;
+}
 
-        .article-container h1, .article-container h2, .article-container h3 {
-            font-family: 'Merriweather', serif;
-            color: var(--text-heading);
-            margin-top: 2em;
-            margin-bottom: 0.8em;
-            line-height: 1.3;
-        }
+.article-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: #FFFFFF;
+  padding: 50px 60px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--border-color);
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
 
-        .article-container h1 { font-size: 2.2rem; margin-top: 0; }
-        .article-container h2 { font-size: 1.6rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
-        .article-container p { margin-bottom: 1.2em; font-size: 1.05rem; }
-        .article-container ul, .article-container ol { margin-bottom: 1.2em; padding-left: 2em; }
-        
-        pre {
-            background-color: #282c34;
-            border-radius: 6px;
-            padding: 16px;
-            overflow-x: auto;
-            margin-bottom: 1.2em;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.9rem;
-        }
+/* Başlıklar: h2 ve h3 (eski HTML ve yeni Markdown notları) birebir aynı görünür */
+.article-container h1,
+.article-container h2,
+.article-container h3,
+.article-container h4 {
+  font-family: 'Merriweather', serif;
+  color: var(--text-heading);
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  line-height: 1.3;
+}
+.article-container h1 { font-size: 2.2rem; margin-top: 0; }
+.article-container h2,
+.article-container h3 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.3em;
+}
+.article-container h4 { font-size: 1.15rem; }
 
-        code {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: rgba(0,0,0,0.05);
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        
-        pre code { background-color: transparent; padding: 0; color: inherit; }
+.article-container p { margin-bottom: 1.2em; font-size: 1.05rem; }
+.article-container ul, .article-container ol { margin-bottom: 1.2em; padding-left: 2em; }
+.article-container li { margin-bottom: 0.4em; font-size: 1.05rem; }
+.article-container strong { font-weight: 600; color: var(--text-heading); }
 
-        .loading, .error {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-muted);
-            font-size: 1.1rem;
-        }
+/* Okuma süresi / zorluk kutusu ve ayraç çizgisi */
+.article-container blockquote {
+  border-left: 4px solid var(--accent);
+  background: rgba(43, 108, 176, 0.08);
+  padding: 10px 16px;
+  margin: 0 0 1.5em 0;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-muted);
+}
+.article-container blockquote p { margin: 0; font-size: 0.95rem; }
+.article-container hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 1.5em 0;
+}
 
-        .mobile-menu-btn {
-            display: none;
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 100;
-            background: var(--bg-sidebar);
-            border: 1px solid var(--border-color);
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--text-main);
-        }
+.article-container table {
+  border-collapse: collapse;
+  margin-bottom: 1.2em;
+  display: block;
+  overflow-x: auto;
+}
+.article-container th, .article-container td {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  text-align: left;
+}
 
-        @media (max-width: 768px) {
-            .mobile-menu-btn { display: block; }
-            .sidebar {
-                position: fixed;
-                z-index: 99;
-                height: 100%;
-                transform: translateX(-100%);
-            }
-            .sidebar.open { transform: translateX(0); }
-            .main-content { padding: 60px 20px 20px 20px; }
-            .article-container { padding: 30px 20px; }
-        }
-    </style>
+pre {
+  background-color: #282c34;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin-bottom: 1.2em;
+  font-size: 0.9rem;
+}
+code, pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+}
+code {
+  background-color: rgba(0,0,0,0.05);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre code, pre code.hljs { background-color: transparent; padding: 0; color: inherit; }
+
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+
+.loading, .error {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  z-index: 100;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: block; }
+  .sidebar {
+    position: fixed;
+    z-index: 99;
+    height: 100%;
+    transform: translateX(-100%);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { padding: 60px 20px 20px 20px; }
+  .article-container { padding: 30px 20px; }
+}
+</style>
 </head>
 <body>
 
-    <button class="mobile-menu-btn" onclick="toggleMenu()">☰ Menü</button>
+<button class="mobile-menu-btn" onclick="toggleMenu()">☰ Menü</button>
 
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h1>CS101 Notları</h1>
-            <p>Otonom Yapay Zeka Sistemi</p>
-            
-            <input type="text" id="searchInput" placeholder="Konularda ara..." onkeyup="filterTopics()" style="width: 100%; margin-top: 15px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
-            
-            <button onclick="toggleDarkMode()" style="margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border-radius: 4px; border: none; background: var(--accent); color: white; font-weight: bold;">🌙 Gece Modu</button>
-        </div>
-        <ul class="nav-list" id="navList"></ul>
-    </aside>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>CS101 Notları</h1>
+    <p>Otonom Yapay Zeka Sistemi</p>
+    <input type="text" id="searchInput" placeholder="Konularda ara..." onkeyup="filterTopics()" style="width: 100%; margin-top: 15px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
+    <button onclick="toggleDarkMode()" style="margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border-radius: 4px; border: none; background: var(--accent); color: white; font-weight: bold;">🌙 Gece Modu</button>
+  </div>
+  <ul class="nav-list" id="navList"></ul>
+</aside>
 
-    <main class="main-content" id="mainContent">
-        <div class="article-container" id="articleContainer">
-            <div class="loading">Veriler buluttan çekiliyor... Lütfen bekleyin.</div>
-        </div>
-    </main>
+<main class="main-content" id="mainContent">
+  <div class="article-container" id="articleContainer">
+    <div class="loading">Veriler buluttan çekiliyor... Lütfen bekleyin.</div>
+  </div>
+</main>
 
-    <script>
-        const DATA_URL = 'notlar.json';
-        let notesData = {};
+<script>
+const DATA_URL = 'notlar.json';
+let notesData = {};
 
-        async function initApp() {
-            try {
-                const response = await fetch(DATA_URL + '?t=' + new Date().getTime());
-                if (!response.ok) throw new Error('Veri dosyasına ulaşılamadı.');
-                
-                const data = await response.json();
-                let itemsList = [];
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
-                if (Array.isArray(data)) {
-                    itemsList = data;
-                } else if (data && Array.isArray(data.bolumler)) {
-                    itemsList = data.bolumler;
-                } else if (typeof data === 'object' && data !== null) {
-                    for (const [key, value] of Object.entries(data)) {
-                        if (key !== 'son_guncelleme' && typeof value === 'string') {
-                            itemsList.push({ baslik: key, icerik: value });
-                        }
-                    }
-                }
+// Markdown'ı HTML'e çevirir; formülleri Markdown'ın bozmasını önler, çıktıyı temizler.
+function renderMarkdown(raw) {
+  const maths = [];
+  const stash = (m) => { maths.push(m); return '%%MATH' + (maths.length - 1) + '%%'; };
 
-                itemsList.forEach(item => {
-                    const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
-                    const value = item.icerik || item.not || item.content || "";
-                    if (key && value) {
-                        notesData[key] = value;
-                    }
-                });
+  // Kod bloklarına dokunma; sadece geri kalan metindeki $$...$$ ve $...$ formülleri sakla
+  const parcalar = raw.split(/(```[\s\S]*?```|`[^`\n]*`)/);
+  const korunmus = parcalar.map((p, i) => {
+    if (i % 2 === 1) return p;
+    return p
+      .replace(/\$\$[\s\S]+?\$\$/g, stash)
+      .replace(/\$[^$\n]+?\$/g, stash);
+  }).join('');
 
-                renderSidebar();
-                
-                const firstTopic = Object.keys(notesData)[0];
-                if (firstTopic) {
-                    loadContent(firstTopic);
-                } else {
-                    showError("Gösterilecek geçerli ders notu bulunamadı.");
-                }
+  let html = marked.parse(korunmus);
+  if (typeof DOMPurify !== 'undefined') html = DOMPurify.sanitize(html);
 
-            } catch (error) {
-                console.error("Yükleme hatası:", error);
-                showError("Veriler yüklenirken bir hata oluştu. Henüz bot çalışmamış olabilir.");
-            }
+  return html.replace(/%%MATH(\d+)%%/g, (_, n) => escapeHtml(maths[Number(n)]));
+}
+
+async function initApp() {
+  try {
+    const response = await fetch(DATA_URL + '?t=' + new Date().getTime());
+    if (!response.ok) throw new Error('Veri dosyasına ulaşılamadı.');
+    const data = await response.json();
+
+    let itemsList = [];
+    if (Array.isArray(data)) {
+      itemsList = data;
+    } else if (data && Array.isArray(data.bolumler)) {
+      itemsList = data.bolumler;
+    } else if (typeof data === 'object' && data !== null) {
+      for (const [key, value] of Object.entries(data)) {
+        if (key !== 'son_guncelleme' && typeof value === 'string') {
+          itemsList.push({ baslik: key, icerik: value });
         }
+      }
+    }
 
-        function renderSidebar() {
-            const navList = document.getElementById('navList');
-            navList.innerHTML = ''; 
+    itemsList.forEach(item => {
+      const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
+      const value = item.icerik || item.not || item.content || "";
+      if (key && value) {
+        notesData[key] = value;
+      }
+    });
 
-            Object.keys(notesData).forEach(topic => {
-                const li = document.createElement('li');
-                li.className = 'nav-item';
-                li.textContent = topic;
-                li.onclick = () => {
-                    loadContent(topic);
-                    if (window.innerWidth <= 768) toggleMenu(); 
-                };
-                navList.appendChild(li);
-            });
-        }
+    renderSidebar();
 
-        function loadContent(topic) {
-            document.querySelectorAll('.nav-item').forEach(el => {
-                el.classList.remove('active');
-                if (el.textContent === topic) el.classList.add('active');
-            });
+    const firstTopic = Object.keys(notesData)[0];
+    if (firstTopic) {
+      loadContent(firstTopic);
+    } else {
+      showError("Gösterilecek geçerli ders notu bulunamadı.");
+    }
+  } catch (error) {
+    console.error("Yükleme hatası:", error);
+    showError("Veriler yüklenirken bir hata oluştu. Henüz bot çalışmamış olabilir.");
+  }
+}
 
-            const rawContent = notesData[topic] || "İçerik bulunamadı.";
-            const container = document.getElementById('articleContainer');
+function renderSidebar() {
+  const navList = document.getElementById('navList');
+  navList.innerHTML = '';
+  Object.keys(notesData).forEach(topic => {
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    li.textContent = topic;
+    li.onclick = () => {
+      loadContent(topic);
+      if (window.innerWidth <= 768) toggleMenu();
+    };
+    navList.appendChild(li);
+  });
+}
 
-            container.innerHTML = `<h1 class="topic-title">${topic}</h1>` + marked.parse(rawContent);
+function loadContent(topic) {
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.remove('active');
+    if (el.textContent === topic) el.classList.add('active');
+  });
 
-            document.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
+  const rawContent = notesData[topic] || "İçerik bulunamadı.";
+  const container = document.getElementById('articleContainer');
 
-            renderMathInElement(container, {
-                delimiters: [
-                    {left: '$$', right: '$$', display: true},
-                    {left: '$', right: '$', display: false},
-                    {left: '\\(', right: '\\)', display: false},
-                    {left: '\\[', right: '\\]', display: true}
-                ],
-                throwOnError : false
-            });
+  container.innerHTML = '<h1 class="topic-title"></h1>' + renderMarkdown(rawContent);
+  container.querySelector('.topic-title').textContent = topic;
 
-            document.getElementById('mainContent').scrollTop = 0;
-        }
+  document.querySelectorAll('pre code').forEach((block) => {
+    hljs.highlightElement(block);
+  });
 
-        function showError(message) {
-            document.getElementById('articleContainer').innerHTML = `<div class="error">⚠️ ${message}</div>`;
-        }
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(container, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\(', right: '\\)', display: false},
+        {left: '\\[', right: '\\]', display: true}
+      ],
+      throwOnError: false
+    });
+  }
 
-        function toggleMenu() {
-            document.getElementById('sidebar').classList.toggle('open');
-        }
+  document.getElementById('mainContent').scrollTop = 0;
+}
 
-        function toggleDarkMode() {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('darkMode', isDark); 
-        }
+function showError(message) {
+  const container = document.getElementById('articleContainer');
+  container.innerHTML = '<div class="error"></div>';
+  container.querySelector('.error').textContent = '⚠️ ' + message;
+}
 
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-        }
+function toggleMenu() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
 
-        function filterTopics() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const items = document.querySelectorAll('.nav-item');
-            items.forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(query) ? 'block' : 'none';
-            });
-        }
+function toggleDarkMode() {
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  try { localStorage.setItem('darkMode', isDark); } catch (e) {}
+}
 
-        window.onload = initApp;
-    </script>
+try {
+  if (localStorage.getItem('darkMode') === 'true') {
+    document.body.classList.add('dark-mode');
+  }
+} catch (e) {}
+
+function filterTopics() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const items = document.querySelectorAll('.nav-item');
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(query) ? 'block' : 'none';
+  });
+}
+
+window.onload = initApp;
+</script>
 </body>
 </html>
