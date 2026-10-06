@@ -61,7 +61,7 @@ body {
 }
 
 .sidebar {
-  width: 280px;
+  width: 300px;
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -88,12 +88,46 @@ body {
   margin-top: 4px;
 }
 
-.nav-list { list-style: none; padding: 16px 0; }
+/* Ders grupları */
+.ders-grup { border-bottom: 1px solid var(--border-color); }
+
+.ders-grup summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 24px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-heading);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.ders-grup summary::-webkit-details-marker { display: none; }
+.ders-grup summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.2s;
+  color: var(--text-muted);
+}
+.ders-grup[open] summary::before { transform: rotate(90deg); }
+.ders-ad { flex: 1; }
+.ders-sayac {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.nav-list { list-style: none; padding: 0 0 10px 0; }
 
 .nav-item {
-  padding: 10px 24px;
+  padding: 8px 24px 8px 42px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
   color: var(--text-main);
   transition: all 0.2s;
   border-left: 3px solid transparent;
@@ -125,6 +159,15 @@ body {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+.ders-etiketi {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
 /* Başlıklar: h2 ve h3 (eski HTML ve yeni Markdown notları) birebir aynı görünür */
 .article-container h1,
 .article-container h2,
@@ -150,7 +193,6 @@ body {
 .article-container li { margin-bottom: 0.4em; font-size: 1.05rem; }
 .article-container strong { font-weight: 600; color: var(--text-heading); }
 
-/* Okuma süresi / zorluk kutusu ve ayraç çizgisi */
 .article-container blockquote {
   border-left: 4px solid var(--accent);
   background: rgba(43, 108, 176, 0.08);
@@ -245,7 +287,7 @@ pre code, pre code.hljs { background-color: transparent; padding: 0; color: inhe
     <input type="text" id="searchInput" placeholder="Konularda ara..." onkeyup="filterTopics()" style="width: 100%; margin-top: 15px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main);">
     <button onclick="toggleDarkMode()" style="margin-top: 10px; width: 100%; padding: 8px; cursor: pointer; border-radius: 4px; border: none; background: var(--accent); color: white; font-weight: bold;">🌙 Gece Modu</button>
   </div>
-  <ul class="nav-list" id="navList"></ul>
+  <div id="navList"></div>
 </aside>
 
 <main class="main-content" id="mainContent">
@@ -256,7 +298,17 @@ pre code, pre code.hljs { background-color: transparent; padding: 0; color: inhe
 
 <script>
 const DATA_URL = 'notlar.json';
-let notesData = {};
+
+// Bot henüz ders bilgisi eklemediyse eski bölümlerin hangi derse gireceği
+// (akilli_bot.py içindeki ESKI_BOLUMLER ile aynı olmalı)
+const ESKI_DERS = {
+  'bolum-1': ['Algoritmalar ve Bellek Yönetimi', 1],
+  'bolum-2': ['Lineer Cebir', 1],
+  'bolum-4': ['Yapay Zeka ve Veri Bilimi', 1]
+};
+
+let items = [];        // Tüm bölümler
+let dersGruplari = []; // [{ ad, liste: [...] }]
 
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -301,54 +353,102 @@ async function initApp() {
       }
     }
 
-    itemsList.forEach(item => {
-      const key = item.baslik || item.konu || item.title || "İsimsiz Konu";
-      const value = item.icerik || item.not || item.content || "";
-      if (key && value) {
-        notesData[key] = value;
-      }
+    itemsList.forEach((item, idx) => {
+      const baslik = item.baslik || item.konu || item.title || 'İsimsiz Konu';
+      const icerik = item.icerik || item.not || item.content || '';
+      if (!icerik) return;
+      const eski = ESKI_DERS[item.id] || [];
+      items.push({
+        id: item.id || ('oge-' + idx),
+        baslik: baslik,
+        icerik: icerik,
+        ders: item.ders || eski[0] || 'Diğer Notlar',
+        sira: Number(item.sira) || eski[1] || (idx + 1),
+        seviye: item.seviye || ''
+      });
     });
 
+    gruplariOlustur();
     renderSidebar();
 
-    const firstTopic = Object.keys(notesData)[0];
-    if (firstTopic) {
-      loadContent(firstTopic);
+    if (items.length > 0) {
+      loadContent(items[items.length - 1].id); // En yeni bölümü aç
     } else {
-      showError("Gösterilecek geçerli ders notu bulunamadı.");
+      showError('Gösterilecek geçerli ders notu bulunamadı.');
     }
   } catch (error) {
-    console.error("Yükleme hatası:", error);
-    showError("Veriler yüklenirken bir hata oluştu. Henüz bot çalışmamış olabilir.");
+    console.error('Yükleme hatası:', error);
+    showError('Veriler yüklenirken bir hata oluştu. Henüz bot çalışmamış olabilir.');
   }
 }
 
+// Dersler ilk göründükleri sırayla, bölümler sıra numarasıyla dizilir
+function gruplariOlustur() {
+  const harita = new Map();
+  items.forEach(it => {
+    if (!harita.has(it.ders)) harita.set(it.ders, []);
+    harita.get(it.ders).push(it);
+  });
+  dersGruplari = Array.from(harita.entries()).map(([ad, liste]) => ({
+    ad: ad,
+    liste: liste.sort((a, b) => a.sira - b.sira)
+  }));
+}
+
 function renderSidebar() {
-  const navList = document.getElementById('navList');
-  navList.innerHTML = '';
-  Object.keys(notesData).forEach(topic => {
-    const li = document.createElement('li');
-    li.className = 'nav-item';
-    li.textContent = topic;
-    li.onclick = () => {
-      loadContent(topic);
-      if (window.innerWidth <= 768) toggleMenu();
-    };
-    navList.appendChild(li);
+  const nav = document.getElementById('navList');
+  nav.innerHTML = '';
+
+  dersGruplari.forEach(grup => {
+    const details = document.createElement('details');
+    details.className = 'ders-grup';
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    const ad = document.createElement('span');
+    ad.className = 'ders-ad';
+    ad.textContent = grup.ad;
+    const sayac = document.createElement('span');
+    sayac.className = 'ders-sayac';
+    sayac.textContent = grup.liste.length + ' bölüm';
+    summary.appendChild(ad);
+    summary.appendChild(sayac);
+    details.appendChild(summary);
+
+    const ul = document.createElement('ul');
+    ul.className = 'nav-list';
+    grup.liste.forEach(it => {
+      const li = document.createElement('li');
+      li.className = 'nav-item';
+      li.dataset.id = it.id;
+      li.textContent = it.sira + '. ' + it.baslik;
+      li.onclick = () => {
+        loadContent(it.id);
+        if (window.innerWidth <= 768) toggleMenu();
+      };
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    nav.appendChild(details);
   });
 }
 
-function loadContent(topic) {
+function loadContent(id) {
+  const it = items.find(x => x.id === id);
+  if (!it) return;
+
   document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.remove('active');
-    if (el.textContent === topic) el.classList.add('active');
+    el.classList.toggle('active', el.dataset.id === id);
   });
 
-  const rawContent = notesData[topic] || "İçerik bulunamadı.";
   const container = document.getElementById('articleContainer');
+  container.innerHTML =
+    '<div class="ders-etiketi"></div><h1 class="topic-title"></h1>' + renderMarkdown(it.icerik);
 
-  container.innerHTML = '<h1 class="topic-title"></h1>' + renderMarkdown(rawContent);
-  container.querySelector('.topic-title').textContent = topic;
+  let etiket = it.ders + ' · Bölüm ' + it.sira;
+  if (it.seviye) etiket += ' · ' + it.seviye;
+  container.querySelector('.ders-etiketi').textContent = etiket;
+  container.querySelector('.topic-title').textContent = it.baslik;
 
   document.querySelectorAll('pre code').forEach((block) => {
     hljs.highlightElement(block);
@@ -392,11 +492,16 @@ try {
 } catch (e) {}
 
 function filterTopics() {
-  const query = document.getElementById('searchInput').value.toLowerCase();
-  const items = document.querySelectorAll('.nav-item');
-  items.forEach(item => {
-    const text = item.textContent.toLowerCase();
-    item.style.display = text.includes(query) ? 'block' : 'none';
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  document.querySelectorAll('.ders-grup').forEach(grup => {
+    let gorunen = 0;
+    grup.querySelectorAll('.nav-item').forEach(item => {
+      const eslesti = item.textContent.toLowerCase().includes(query);
+      item.style.display = eslesti ? 'block' : 'none';
+      if (eslesti) gorunen++;
+    });
+    grup.style.display = gorunen > 0 ? 'block' : 'none';
+    if (query) grup.open = true;
   });
 }
 
