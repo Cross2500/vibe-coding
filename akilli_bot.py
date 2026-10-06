@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import time
@@ -20,6 +21,7 @@ YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
 MAX_DENEME = 5
 MIN_KELIME = 700   # Bunun altı "çok kısa" sayılıp yeniden denenir
 HEDEF_BOLUM = 10   # Her dersin toplam bölüm sayısı (dolunca o ders atlanır)
+BOZUK_ESIK = 5     # Harf arasına karışan rakam sayısı bu değeri geçerse içerik bozuk sayılır
 TZ = ZoneInfo("Europe/Istanbul")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
@@ -48,6 +50,9 @@ ESKI_BOLUMLER = {
     "bolum-1": ("Algoritmalar ve Bellek Yönetimi", 1),
     "bolum-2": ("Lineer Cebir", 1),
     "bolum-4": ("Yapay Zeka ve Veri Bilimi", 1),
+    "bolum-5": ("Yapay Zeka ve Veri Bilimi", 2),
+    "bolum-6": ("Yapay Zeka ve Veri Bilimi", 3),
+    "bolum-7": ("Yapay Zeka ve Veri Bilimi", 4),
 }
 
 SEVIYELER = {
@@ -91,6 +96,28 @@ def seviye_anahtari(sira: int) -> str:
 
 def turkce_tarih(dt: datetime) -> str:
     return f"{dt.day} {AYLAR[dt.month - 1]} {dt.year}"
+
+
+def icerik_onar(metin: str) -> str:
+    """Çift kodlanmış içeriği düzeltir: yazı olarak kalmış '\\n' ve '\\\"' karakterleri, sondaki '\"}' artığı."""
+    literal = metin.count("\\n")
+    gercek = metin.count("\n")
+    if literal >= 5 and gercek < literal / 2:
+        # LaTeX komutlarını (\nabla, \neq, \notin ...) bozmadan satır sonlarını geri getir
+        metin = re.sub(
+            r"\\n(?!abla|eq|otin|ewline|leq|geq|(?:u|ot|e)(?![^\W\d_]))", "\n", metin
+        )
+        metin = metin.replace('\\"', '"')
+    return re.sub(r'"\}\s*$', "", metin)
+
+
+def bozuk_mu(metin: str) -> bool:
+    """Harflerin arasına rakam karışmış üretimleri yakalar (ör. 'G1ri11', 'arkada1lar')."""
+    duz = re.sub(r"```[\s\S]*?```", " ", metin)
+    duz = re.sub(r"\$\$[\s\S]+?\$\$", " ", duz)
+    duz = re.sub(r"\$[^$\n]+?\$", " ", duz)
+    duz = re.sub(r"`[^`\n]*`", " ", duz)
+    return len(re.findall(r"(?<=[^\W\d_])\d(?=[^\W\d_])", duz)) >= BOZUK_ESIK
 
 
 def istemci_olustur() -> genai.Client:
@@ -154,6 +181,26 @@ def yeni_id_uret(bolumler: list) -> str:
     return f"bolum-{max(sayilar, default=0) + 1}"
 
 
+def bolumleri_onar_ve_temizle(bolumler: list) -> bool:
+    """Mevcut bölümleri onarır; onarılamayacak kadar bozuk olanları siler."""
+    degisti = False
+    temiz = []
+    for b in bolumler:
+        eski = b.get("icerik", "")
+        yeni = icerik_onar(eski)
+        if yeni != eski:
+            b["icerik"] = yeni
+            degisti = True
+            logger.info(f"İçerik onarıldı: {b.get('id')} - {b.get('baslik')}")
+        if bozuk_mu(b.get("icerik", "")):
+            logger.warning(f"Bozuk içerik silindi (yeniden üretilecek): {b.get('id')} - {b.get('baslik')}")
+            degisti = True
+            continue
+        temiz.append(b)
+    bolumler[:] = temiz
+    return degisti
+
+
 def eski_bolumleri_duzenle(bolumler: list) -> bool:
     """Ders bilgisi olmayan eski bölümlere ders, sıra ve seviye ekler."""
     degisti = False
@@ -210,14 +257,16 @@ Yaklaşık 1200 kelimelik, öğrencilerin ufkunu açacak kapsamlı bir ders notu
 
 AKADEMİK KURALLAR:
 1. İçerik Markdown formatında olsun (HTML kullanma), en az 3 detaylı alt başlık (##) içersin.
+   Ana başlık olarak # (H1) KULLANMA, sadece ## ve ### kullan.
 2. Python, C++ veya SQL kod blokları yaz (``` ile) ve mimariyi açıkla. Kodlarda hata/sınır kontrolü yap.
 3. Matematiksel formüller için KaTeX formatı ($$ formül $$) kullan.
 4. Notun sonuna "Gelecek Ders İçin İpucu" bölümü ekle.
 5. İçeriğin en altına günün tarihini ({turkce_tarih(simdi)}) ve konuyu özetleyen 5 adet modern hashtag ekle.
+6. Türkçe karakterleri (ı, İ, ş, ğ, ü, ö, ç) doğru yaz. Harflerin yerine asla rakam kullanma.
 
 YANIT FORMATI: Yalnızca "baslik" ve "icerik" alanlarını içeren geçerli JSON döndür.
 "baslik" sadece konunun adı olsun (ders adını ve bölüm numarasını yazma).
-"icerik" tüm ders içeriğini Markdown olarak taşır.
+"icerik" tüm ders içeriğini Markdown olarak taşır; satır sonları gerçek satır sonu olsun (\\n yazısı değil).
 """
 
 
@@ -242,11 +291,14 @@ def ders_uret(client: genai.Client, prompt: str, mevcut_basliklar: set) -> Ders:
                 raise ValueError("Boş yanıt geldi (güvenlik filtresi olabilir).")
 
             ders = Ders.model_validate_json(response.text)
+            ders.icerik = icerik_onar(ders.icerik)
 
             if not ders.baslik.strip():
                 raise ValueError("Başlık boş.")
             if ders.baslik.strip().lower() in mevcut_basliklar:
                 raise ValueError(f"Bu başlık zaten işlenmiş: {ders.baslik}")
+            if bozuk_mu(ders.baslik + "\n" + ders.icerik):
+                raise ValueError("İçerikte bozuk karakterler var (harf yerine rakam); yeniden denenecek.")
 
             kelime = len(ders.icerik.split())
             if kelime < MIN_KELIME:
@@ -284,7 +336,8 @@ def otonom_sistemi_baslat() -> None:
     simdi = datetime.now(TZ)
 
     veri = veri_yukle()
-    duzenlendi = eski_bolumleri_duzenle(veri["bolumler"])
+    duzenlendi = bolumleri_onar_ve_temizle(veri["bolumler"])
+    duzenlendi = eski_bolumleri_duzenle(veri["bolumler"]) or duzenlendi
 
     ders_tanimi, sira = siradaki_ders_sec(veri["bolumler"])
     if ders_tanimi is None:
@@ -297,7 +350,14 @@ def otonom_sistemi_baslat() -> None:
 
     mevcut_basliklar = {b.get("baslik", "").strip().lower() for b in veri["bolumler"]}
     prompt = prompt_olustur(ders_tanimi, sira, veri["bolumler"], simdi)
-    ders = ders_uret(client, prompt, mevcut_basliklar)
+    try:
+        ders = ders_uret(client, prompt, mevcut_basliklar)
+    except Exception:
+        # Üretim başarısız olsa bile yapılan onarımlar kaybolmasın
+        if duzenlendi:
+            guvenli_kaydet(veri)
+            logger.info("Onarılan mevcut bölümler kaydedildi.")
+        raise
 
     seviye_etiketi = SEVIYELER[seviye_anahtari(sira)][0]
     sure = okuma_suresi_hesapla(ders.icerik)
