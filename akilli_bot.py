@@ -15,13 +15,49 @@ from pydantic import BaseModel
 # Ayarlar
 # ---------------------------------------------------------------------------
 DOSYA_ADI = "notlar.json"
-MODEL_ADI = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3-flash-preview")
+MODEL_ADI = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
+YEDEK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
 MAX_DENEME = 5
-MIN_KELIME = 700  # Bunun altı "çok kısa" sayılıp yeniden denenir
+MIN_KELIME = 700   # Bunun altı "çok kısa" sayılıp yeniden denenir
+HEDEF_BOLUM = 10   # Her dersin toplam bölüm sayısı (dolunca o ders atlanır)
 TZ = ZoneInfo("Europe/Istanbul")
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
          "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+
+# Dersler: yeni ders eklemek için buraya bir blok daha ekleyebilirsin.
+DERSLER = [
+    {
+        "ad": "Algoritmalar ve Bellek Yönetimi",
+        "aciklama": "Algoritma analizi, asimptotik notasyon, veri yapıları, bellek modeli, "
+                    "arama ve sıralama, özyineleme, graf algoritmaları, dinamik programlama.",
+    },
+    {
+        "ad": "Lineer Cebir",
+        "aciklama": "Vektörler, matrisler, lineer denklem sistemleri, determinant, "
+                    "özdeğer ve özvektörler, matris ayrışımları (LU, SVD) ve mühendislik uygulamaları.",
+    },
+    {
+        "ad": "Yapay Zeka ve Veri Bilimi",
+        "aciklama": "Veri ön işleme, istatistik, regresyon, sınıflandırma, gradyan inişi, "
+                    "sinir ağları, değerlendirme metrikleri, derin öğrenme ve modern mimariler.",
+    },
+]
+
+# Derssiz kalan eski bölümlerin hangi derse ve kaçıncı sıraya gireceği
+ESKI_BOLUMLER = {
+    "bolum-1": ("Algoritmalar ve Bellek Yönetimi", 1),
+    "bolum-2": ("Lineer Cebir", 1),
+    "bolum-4": ("Yapay Zeka ve Veri Bilimi", 1),
+}
+
+SEVIYELER = {
+    "temel": ("🟢 Temel Seviye",
+              "Kavramları ve sezgiyi sıfırdan kur. Küçük, basit örnekler kullan; önkoşul bilgiyi minimumda tut."),
+    "orta": ("🟡 Orta Seviye",
+             "Önceki bölümlerin bilindiğini varsay. Formal tanımlar, analiz ve gerçekçi uygulamalar ekle."),
+    "ileri": ("🔴 İleri Seviye",
+              "İleri teknikler, optimizasyon, uç durumlar ve gerçek dünya mühendislik uygulamalarına gir."),
+}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,16 +80,13 @@ def okuma_suresi_hesapla(metin: str) -> int:
     return max(1, round(len(metin.split()) / 200))
 
 
-def akademik_zorluk_hesapla(metin: str) -> str:
-    kod_blok_sayisi = metin.count("```") / 2
-    formul_sayisi = metin.count("$$") / 2
-    kelime_sayisi = len(metin.split())
-    puan = (formul_sayisi * 2.5) + (kod_blok_sayisi * 2.0) + (kelime_sayisi / 400)
-    if puan >= 12:
-        return "🔴 İleri Seviye (Uzman)"
-    if puan >= 6:
-        return "🟡 Orta Seviye (Lisans)"
-    return "🟢 Temel Seviye (Giriş)"
+def seviye_anahtari(sira: int) -> str:
+    oran = sira / HEDEF_BOLUM
+    if oran <= 0.3:
+        return "temel"
+    if oran <= 0.7:
+        return "orta"
+    return "ileri"
 
 
 def turkce_tarih(dt: datetime) -> str:
@@ -65,10 +98,10 @@ def istemci_olustur() -> genai.Client:
     if not api_key:
         logger.error("KRİTİK HATA: GEMINI_API_KEY bulunamadı! GitHub Secrets'ı kontrol et.")
         sys.exit(1)
-    # Tek bir istek 2 dakikadan uzun asılı kalırsa kesilir ve yeniden denenir (süre milisaniye)
+    # Tek bir istek 5 dakikadan uzun asılı kalırsa kesilir ve yeniden denenir (milisaniye)
     return genai.Client(
         api_key=api_key,
-        http_options=types.HttpOptions(timeout=120_000),
+        http_options=types.HttpOptions(timeout=300_000),
     )
 
 
@@ -89,6 +122,7 @@ def veri_yukle() -> dict:
         veri["bolumler"] = okunan
     elif isinstance(okunan, dict) and isinstance(okunan.get("bolumler"), list):
         veri["bolumler"] = okunan["bolumler"]
+        veri["son_guncelleme"] = okunan.get("son_guncelleme", "")
     else:
         logger.error(f"{DOSYA_ADI} beklenmeyen bir yapıda; duruyorum.")
         sys.exit(1)
@@ -120,16 +154,59 @@ def yeni_id_uret(bolumler: list) -> str:
     return f"bolum-{max(sayilar, default=0) + 1}"
 
 
-def prompt_olustur(bolumler: list, simdi: datetime) -> str:
-    islenenler = [b.get("baslik", "") for b in bolumler if b.get("baslik")]
-    konu_gecmisi = ", ".join(islenenler) if islenenler else "Henüz hiç konu işlenmedi."
+def eski_bolumleri_duzenle(bolumler: list) -> bool:
+    """Ders bilgisi olmayan eski bölümlere ders, sıra ve seviye ekler."""
+    degisti = False
+    for b in bolumler:
+        if b.get("ders"):
+            continue
+        ders, sira = ESKI_BOLUMLER.get(b.get("id"), ("Diğer Notlar", 1))
+        b["ders"] = ders
+        b["sira"] = sira
+        b["seviye"] = SEVIYELER[seviye_anahtari(sira)][0]
+        degisti = True
+    return degisti
+
+
+def siradaki_ders_sec(bolumler: list):
+    """En az bölümü olan (tamamlanmamış) dersi ve yazılacak bölüm sırasını döndürür."""
+    son_sira = {d["ad"]: 0 for d in DERSLER}
+    for b in bolumler:
+        ad = b.get("ders")
+        if ad in son_sira:
+            son_sira[ad] = max(son_sira[ad], int(b.get("sira", 0) or 0))
+
+    adaylar = [d for d in DERSLER if son_sira[d["ad"]] < HEDEF_BOLUM]
+    if not adaylar:
+        return None, 0
+    ders = min(adaylar, key=lambda d: son_sira[d["ad"]])  # eşitlikte listedeki sıra kazanır
+    return ders, son_sira[ders["ad"]] + 1
+
+
+def prompt_olustur(ders: dict, sira: int, bolumler: list, simdi: datetime) -> str:
+    oncekiler = sorted(
+        [b for b in bolumler if b.get("ders") == ders["ad"]],
+        key=lambda b: b.get("sira", 0),
+    )
+    onceki_liste = "\n".join(f"{b.get('sira')}. {b.get('baslik')}" for b in oncekiler) \
+        or "Henüz bölüm yok."
+    etiket, yonerge = SEVIYELER[seviye_anahtari(sira)]
 
     return f"""
 Sen MIT ve Stanford seviyesinde ders veren, vizyoner bir Bilgisayar Mühendisliği Profesörüsün.
-Şu ana kadar müfredatta işlediğimiz konular şunlar: {konu_gecmisi}
+Bir ders müfredatını temelden zora doğru, bölüm bölüm yazıyorsun.
 
-GÖREV: Bu geçmişi analiz et ve müfredatta mantıksal olarak sıradaki, daha önce İŞLENMEMİŞ yeni bir konu seç.
-Seçtiğin konu için en az 1500 kelimelik, öğrencilerin ufkunu açacak kapsamlı bir ders notu hazırla.
+DERS: {ders["ad"]}
+DERSİN KAPSAMI: {ders["aciklama"]}
+
+Bu derste şimdiye kadar işlenen bölümler (sırayla):
+{onceki_liste}
+
+GÖREV: Bu dersin {sira}. bölümünü yaz ({HEDEF_BOLUM} bölümlük müfredatın {sira}/{HEDEF_BOLUM}. adımı).
+SEVİYE: {etiket}. {yonerge}
+Önceki bölümlerin üzerine inşa et: yukarıdaki listeden bir adım daha ileri, daha önce İŞLENMEMİŞ yeni bir konu seç.
+Konuyu seçerken dersin kapsamındaki konuları mantıklı bir öğrenme sırasında ilerlet.
+Yaklaşık 1200 kelimelik, öğrencilerin ufkunu açacak kapsamlı bir ders notu hazırla.
 
 AKADEMİK KURALLAR:
 1. İçerik Markdown formatında olsun (HTML kullanma), en az 3 detaylı alt başlık (##) içersin.
@@ -139,6 +216,7 @@ AKADEMİK KURALLAR:
 5. İçeriğin en altına günün tarihini ({turkce_tarih(simdi)}) ve konuyu özetleyen 5 adet modern hashtag ekle.
 
 YANIT FORMATI: Yalnızca "baslik" ve "icerik" alanlarını içeren geçerli JSON döndür.
+"baslik" sadece konunun adı olsun (ders adını ve bölüm numarasını yazma).
 "icerik" tüm ders içeriğini Markdown olarak taşır.
 """
 
@@ -206,24 +284,38 @@ def otonom_sistemi_baslat() -> None:
     simdi = datetime.now(TZ)
 
     veri = veri_yukle()
+    duzenlendi = eski_bolumleri_duzenle(veri["bolumler"])
+
+    ders_tanimi, sira = siradaki_ders_sec(veri["bolumler"])
+    if ders_tanimi is None:
+        logger.info(f"Tüm dersler {HEDEF_BOLUM} bölüme ulaştı. Yeni ders yazılmayacak.")
+        if duzenlendi:
+            guvenli_kaydet(veri)
+        return
+
+    logger.info(f"Seçilen ders: {ders_tanimi['ad']} | Bölüm: {sira}/{HEDEF_BOLUM}")
+
     mevcut_basliklar = {b.get("baslik", "").strip().lower() for b in veri["bolumler"]}
+    prompt = prompt_olustur(ders_tanimi, sira, veri["bolumler"], simdi)
+    ders = ders_uret(client, prompt, mevcut_basliklar)
 
-    ders = ders_uret(client, prompt_olustur(veri["bolumler"], simdi), mevcut_basliklar)
-
+    seviye_etiketi = SEVIYELER[seviye_anahtari(sira)][0]
     sure = okuma_suresi_hesapla(ders.icerik)
-    zorluk = akademik_zorluk_hesapla(ders.icerik)
-    meta = f"> ⏱️ **Tahmini Okuma Süresi:** {sure} dakika | 🎚️ **Zorluk Derecesi:** {zorluk}\n\n---\n\n"
+    meta = f"> ⏱️ **Tahmini Okuma Süresi:** {sure} dakika | 🎚️ **Seviye:** {seviye_etiketi}\n\n---\n\n"
 
     veri["bolumler"].append({
         "id": yeni_id_uret(veri["bolumler"]),
+        "ders": ders_tanimi["ad"],
+        "sira": sira,
+        "seviye": seviye_etiketi,
         "baslik": ders.baslik.strip(),
         "icerik": meta + ders.icerik,
-        "ikon": "fa-brain",
+        "ikon": "fa-book",
     })
     veri["son_guncelleme"] = simdi.strftime("%d.%m.%Y %H:%M")
 
     guvenli_kaydet(veri)
-    logger.info(f"🚀 Başarılı! Yeni ders eklendi: {ders.baslik}")
+    logger.info(f"🚀 Başarılı! Yeni bölüm eklendi: {ders_tanimi['ad']} / {ders.baslik}")
 
 
 if __name__ == "__main__":
