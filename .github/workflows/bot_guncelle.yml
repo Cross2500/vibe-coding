@@ -35,6 +35,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python akilli_bot.py
+          - name: Tarih Bilgisini Al
+        id: date
+        run: echo "tarih=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Degisiklikleri Siteye Kaydet
         run: |
@@ -42,6 +45,13 @@ jobs:
           git config --global user.email "bot@users.noreply.github.com"
           git add notlar.json
           
-          # Eğer notlar.json'da gerçekten bir değişiklik olduysa commit ve push yap.
-          # (Dosya aynıysa hata vermesini engeller)
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🚀 Otomatik not güncellemesi [skip ci]" && git push)
+          # Dinamik commit mesajı: Her güncellemeye o günün tarihini basar
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🚀 Akademik Not Güncellemesi: ${{ env.tarih }} [skip ci]" && git push)
+
+      - name: Bulut Yedeği (Artifact) Oluştur
+        uses: actions/upload-artifact@v4
+        if: always() # İşlem çökse bile yedeği almayı garanti eder
+        with:
+          name: notlar-json-yedeği-${{ env.tarih }}
+          path: notlar.json
+          retention-days: 7 # Yedekler GitHub sunucularında 7 gün saklanır
