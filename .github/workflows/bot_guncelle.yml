@@ -52,6 +52,15 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # İşlem çökse bile yedeği almayı garanti eder
         with:
+        - name: Görsel Sonuç Raporu (Dashboard) Oluştur
+        if: always()
+        run: |
+          echo "### 🧠 AI Otonom İşlem Özeti" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tarih:** ${{ env.tarih }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Çalışma Durumu:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **İşlem:** Yapay zeka yeni akademik içeriği analiz etti ve sisteme eklemeye çalıştı." >> $GITHUB_STEP_SUMMARY
+          echo "- **Bulut Yedeği:** 📦 \`notlar-json-yedeği-${{ env.tarih }}\` olarak sisteme kaydedildi." >> $GITHUB_STEP_SUMMARY
+          echo "🚀 *Sistem döngüsü tamamlandı.*" >> $GITHUB_STEP_SUMMARY
           name: notlar-json-yedeği-${{ env.tarih }}
           path: notlar.json
           retention-days: 7 # Yedekler GitHub sunucularında 7 gün saklanır
