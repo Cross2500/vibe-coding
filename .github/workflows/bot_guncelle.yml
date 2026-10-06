@@ -2,67 +2,77 @@ name: Otonom Not Guncelleyici
 
 on:
   schedule:
-    # Her gün gece yarısı (00:00 UTC) otomatik çalışır
+    # Her gün 00:00 UTC (Türkiye saati ile 03:00). GitHub bazen birkaç dakika geciktirebilir.
     - cron: '0 0 * * *'
-  workflow_dispatch: # İstersen elinle de tetikleyebilirsin
+  workflow_dispatch: # Elle de tetiklenebilir
 
-# 403 HATASININ KESİN ÇÖZÜMÜ: Bota dosyaları güncelleme (yazma) yetkisi veriyoruz
+# Bota notlar.json dosyasını güncelleme (yazma) yetkisi verir
 permissions:
   contents: write
+
+# Aynı anda iki çalışma push yarışına girmesin
+concurrency:
+  group: otonom-not-guncelleyici
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # API yanıt vermezse botun sonsuza kadar çalışmasını engeller
+    timeout-minutes: 10
 
     steps:
+      # Tarih en başta alınır; sonraki adımlar (always) çökme durumunda da kullanabilsin
+      - name: Tarih Bilgisini Al
+        run: echo "tarih=$(TZ=Europe/Istanbul date +'%Y-%m-%d')" >> "$GITHUB_ENV"
+
       - name: Depoyu Kopyala
-        uses: actions/checkout@v4 # En güncel sürüm (v3'ten v4'e yükseltildi)
+        uses: actions/checkout@v4
 
       - name: Python Kur
-        uses: actions/setup-python@v5 # En güncel sürüm
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          cache: 'pip' # Her seferinde sıfırdan indirmek yerine önbellek kullanıp hızlandırır
+          python-version: '3.12'
+          cache: 'pip' # requirements.txt dosyasını kullanır
 
       - name: Gerekli Kutuphaneleri Kur
         run: |
           python -m pip install --upgrade pip
-          pip install google-generativeai
+          pip install -r requirements.txt
 
       - name: Botu Calistir ve Notlari Guncelle
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          python akilli_bot.py
-
-      - name: Tarih Bilgisini Al
-        id: date
-        run: echo "tarih=$(date +'\%Y-\%m-\%d')" >> $GITHUB_ENV
+          # İsteğe bağlı: modeli buradan değiştirebilirsin
+          # GEMINI_MODEL: gemini-3.8-flash
+        run: python akilli_bot.py
 
       - name: Degisiklikleri Siteye Kaydet
         run: |
-          git config --global user.name "Otonom Bot"
-          git config --global user.email "bot@users.noreply.github.com"
+          git config user.name "Otonom Bot"
+          git config user.email "bot@users.noreply.github.com"
           git add notlar.json
-          
-          # Dinamik commit mesajı: Her güncellemeye o günün tarihini basar
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🚀 Akademik Not Güncellemesi: ${{ env.tarih }} [skip ci]" && git push)
+          if git diff --staged --quiet; then
+            echo "Degisiklik yok, commit atlanıyor."
+          else
+            git commit -m "🚀 Akademik Not Güncellemesi: ${{ env.tarih }} [skip ci]"
+            git push
+          fi
 
-      - name: Bulut Yedeği (Artifact) Oluştur
+      # Artifact adlarında ters eğik çizgi gibi karakterler geçersizdir; sade ASCII ad kullanıldı
+      - name: Artifact Yedeği Olustur
         uses: actions/upload-artifact@v4
-        if: always() # İşlem çökse bile yedeği almayı garanti eder
+        if: always()
         with:
-          name: notlar-json-yedeği-${{ env.tarih }}
+          name: notlar-json-${{ env.tarih }}
           path: notlar.json
-          retention-days: 7 # Yedekler GitHub sunucularında 7 gün saklanır 
+          retention-days: 7
 
-      - name: Görsel Sonuç Raporu (Dashboard) Oluştur
+      - name: Sonuc Raporu Olustur
         if: always()
         run: |
-          echo "### 🧠 AI Otonom İşlem Özeti" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tarih:** ${{ env.tarih }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Çalışma Durumu:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **İşlem:** Yapay zeka yeni akademik içeriği analiz etti ve sisteme eklemeye çalıştı." >> $GITHUB_STEP_SUMMARY
-          echo "- **Bulut Yedeği:** 📦 \`notlar-json-yedeği-${{ env.tarih }}\` olarak sisteme kaydedildi." >> $GITHUB_STEP_SUMMARY
-          echo "🚀 *Sistem döngüsü tamamlandı.*" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### 🧠 AI Otonom İşlem Özeti"
+            echo "- **Tarih:** ${{ env.tarih }}"
+            echo "- **Çalışma Durumu:** ${{ job.status }}"
+            echo "- **Artifact:** \`notlar-json-${{ env.tarih }}\` (7 gün saklanır)"
+          } >> "$GITHUB_STEP_SUMMARY"
